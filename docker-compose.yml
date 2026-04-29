@@ -2,8 +2,10 @@ services:
   app:
     image: ghcr.io/rhamdeew/u:latest
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    networks:
+      common:
+        aliases:
+          - u
     volumes:
       - ./data:/data
     environment:
@@ -28,3 +30,7 @@ services:
 
 volumes:
   backup_data:
+
+networks:
+  common:
+    external: true
