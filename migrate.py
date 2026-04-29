@@ -23,6 +23,41 @@ import sys
 
 
 # ---------------------------------------------------------------------------
+# Encoding fix: reverse MySQL latin1 (cp1252-like) double-encoding
+# ---------------------------------------------------------------------------
+
+def fix_mojibake(s: str) -> str:
+    """Reverse MySQL latin1 double-encoding back to proper UTF-8.
+
+    Old MySQL/MariaDB connections using latin1 (which is actually cp1252)
+    stored raw UTF-8 bytes as latin1 characters. When dumped, each byte
+    became its cp1252/latin1 Unicode equivalent, so the string needs to be
+    re-encoded to bytes and decoded as UTF-8.
+
+    Newer records with correct UTF-8 contain non-latin1 code points (e.g.
+    Cyrillic U+0400+) which cannot be encoded as cp1252 — those are left
+    unchanged.
+    """
+    buf = bytearray()
+    for ch in s:
+        cp = ord(ch)
+        if cp <= 0xFF:
+            # Direct Latin-1 range, including C1 controls (0x80–0x9F passthrough)
+            buf.append(cp)
+        else:
+            # Must be a cp1252 special char (€, ', ", –, etc.)
+            try:
+                buf.extend(ch.encode('cp1252'))
+            except UnicodeEncodeError:
+                # Contains a code point outside cp1252 → already correct encoding
+                return s
+    try:
+        return buf.decode('utf-8')
+    except UnicodeDecodeError:
+        return s  # Bytes aren't valid UTF-8 → leave as-is
+
+
+# ---------------------------------------------------------------------------
 # MySQL value-list parser
 # ---------------------------------------------------------------------------
 
@@ -155,7 +190,7 @@ def main():
                     continue
                 keyword, url, title, timestamp, ip, clicks = (
                     row[0], row[1],
-                    row[2] or '',
+                    fix_mojibake(row[2] or ''),
                     row[3] or '',
                     row[4] or '',
                     int(row[5]) if row[5] is not None else 0,
@@ -202,8 +237,8 @@ def main():
             click_id   = int(row[0])
             click_time = row[1] or ''
             shorturl   = row[2] or ''
-            referrer   = row[3] or ''
-            user_agent = row[4] or ''
+            referrer   = fix_mojibake(row[3] or '')
+            user_agent = fix_mojibake(row[4] or '')
             ip_address = row[5] or ''
             # row[6] = country_code — not stored
 

@@ -350,10 +350,11 @@ func TemplateFuncMap() template.FuncMap {
 			return t.Format("2006-01-02 15:04")
 		},
 		"truncate": func(s string, n int) string {
-			if len(s) <= n {
+			runes := []rune(s)
+			if len(runes) <= n {
 				return s
 			}
-			return s[:n-1] + "…"
+			return string(runes[:n-1]) + "…"
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
