@@ -1,0 +1,30 @@
+services:
+  app:
+    image: ghcr.io/rhamdeew/u:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      U_DB_PATH: /data/u.db
+      U_ADMIN_PASSWORD: ""    # REQUIRED: set plaintext or bcrypt hash
+
+  cron:
+    build:
+      context: ./cron
+      dockerfile: Dockerfile
+    container_name: u_cron
+    volumes:
+      - ./data:/data:ro
+      - backup_data:/backups
+    environment:
+      S3_BUCKET: ""       # optional: S3 bucket name for offsite backup
+      S3_ACCESS_KEY: ""   # optional
+      S3_SECRET_KEY: ""   # optional
+      S3_HOST: ""         # optional: e.g. s3.amazonaws.com
+      S3_REGION: ""       # optional: e.g. us-east-1
+    restart: unless-stopped
+
+volumes:
+  backup_data:

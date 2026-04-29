@@ -1,0 +1,15 @@
+{{define "title"}}Sign in — u.{{end}}
+
+{{define "content"}}
+<div class="login-wrap">
+  <h1 class="login-title">u.</h1>
+  {{if .Error}}
+  <p class="flash flash-error">{{.Error}}</p>
+  {{end}}
+  <form method="POST" action="/admin/login" class="login-form">
+    <input type="text"     name="username" placeholder="Username" autocomplete="username" autofocus required>
+    <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+{{end}}

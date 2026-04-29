@@ -1,0 +1,99 @@
+{{define "title"}}Admin — u.{{end}}
+
+{{define "header-right"}}
+<form method="POST" action="/admin/logout">
+  <button type="submit" class="btn btn-ghost">Logout</button>
+</form>
+{{end}}
+
+{{define "content"}}
+{{if .Flash.Message}}
+<p class="flash flash-{{.Flash.Kind}}">{{.Flash.Message}}</p>
+{{end}}
+
+<section class="card">
+  <h2>Add link</h2>
+  <form method="POST" action="/admin/links" class="add-form">
+    <input type="url"  name="url"     placeholder="https://…" required>
+    <input type="text" name="keyword" placeholder="keyword (optional)">
+    <input type="text" name="title"   placeholder="title (optional)">
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+</section>
+
+<section class="card">
+  <div class="list-header">
+    <div class="stats-summary">
+      <span><strong>{{.TotalLinks}}</strong> links</span>
+      <span><strong>{{.TotalClicks}}</strong> clicks total</span>
+    </div>
+    <form method="GET" action="/admin" class="search-form">
+      <input type="search" name="search" value="{{.Search}}" placeholder="Search…">
+      <select name="sort">
+        <option value="created_at" {{if eq .SortBy "created_at"}}selected{{end}}>Date</option>
+        <option value="clicks"     {{if eq .SortBy "clicks"    }}selected{{end}}>Clicks</option>
+        <option value="keyword"    {{if eq .SortBy "keyword"   }}selected{{end}}>Keyword</option>
+        <option value="url"        {{if eq .SortBy "url"       }}selected{{end}}>URL</option>
+      </select>
+      <select name="dir">
+        <option value="desc" {{if     .SortDesc}}selected{{end}}>↓ Desc</option>
+        <option value="asc"  {{if not .SortDesc}}selected{{end}}>↑ Asc</option>
+      </select>
+      <button type="submit" class="btn">Filter</button>
+      {{if .Search}}<a href="/admin" class="btn btn-ghost">Clear</a>{{end}}
+    </form>
+  </div>
+
+  {{if .Links}}
+  <table class="links-table">
+    <thead>
+      <tr>
+        <th>Short URL</th>
+        <th>Destination</th>
+        <th>Title</th>
+        <th>Created</th>
+        <th class="num">Clicks</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {{range .Links}}
+    <tr>
+      <td class="cell-keyword">
+        <a href="{{$.SiteURL}}/{{.Keyword}}" target="_blank" rel="noopener">{{.Keyword}}</a>
+        <button class="btn-copy" onclick="copyText('{{$.SiteURL}}/{{.Keyword}}')" title="Copy short URL">⎘</button>
+      </td>
+      <td class="cell-url" title="{{.URL}}"><a href="{{.URL}}" target="_blank" rel="noopener">{{truncate .URL 60}}</a></td>
+      <td class="cell-title">{{truncate .Title 40}}</td>
+      <td class="cell-date">{{formatTime .CreatedAt}}</td>
+      <td class="num">{{.Clicks}}</td>
+      <td class="cell-actions">
+        <a href="/admin/links/{{.Keyword}}/stats" class="btn btn-sm">Stats</a>
+        <a href="/admin/links/{{.Keyword}}/edit"  class="btn btn-sm">Edit</a>
+        <form method="POST" action="/admin/links/{{.Keyword}}/delete" style="display:inline"
+              onsubmit="return confirm('Delete {{.Keyword}}?')">
+          <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+
+  {{if gt .TotalPages 1}}
+  <nav class="pagination">
+    {{if gt .Page 1}}
+    <a href="?page={{sub .Page 1}}&search={{.Search}}&sort={{.SortBy}}&dir={{if .SortDesc}}desc{{else}}asc{{end}}&per_page={{.PerPage}}" class="btn btn-sm">← Prev</a>
+    {{end}}
+    <span>Page {{.Page}} / {{.TotalPages}}</span>
+    {{if lt .Page .TotalPages}}
+    <a href="?page={{add .Page 1}}&search={{.Search}}&sort={{.SortBy}}&dir={{if .SortDesc}}desc{{else}}asc{{end}}&per_page={{.PerPage}}" class="btn btn-sm">Next →</a>
+    {{end}}
+  </nav>
+  {{end}}
+
+  {{else}}
+  <p class="empty">No links found.{{if .Search}} Try a different search.{{end}}</p>
+  {{end}}
+</section>
+{{end}}

@@ -1,0 +1,29 @@
+{{define "base"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{block "title" .}}u.{{end}}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a href="/admin" class="site-logo">u.</a>
+    {{block "header-right" .}}{{end}}
+  </header>
+  <main class="site-main">
+    {{block "content" .}}{{end}}
+  </main>
+  <script>
+    // Copy-to-clipboard helper used by admin page
+    function copyText(text) {
+      navigator.clipboard.writeText(text).then(function() {
+        var el = event.target;
+        var orig = el.textContent;
+        el.textContent = "Copied!";
+        setTimeout(function(){ el.textContent = orig; }, 1200);
+      });
+    }
+  </script>
+</body>
+</html>{{end}}

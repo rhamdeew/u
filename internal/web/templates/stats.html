@@ -1,0 +1,61 @@
+{{define "title"}}Stats: {{.Link.Keyword}} — u.{{end}}
+
+{{define "header-right"}}
+<form method="POST" action="/admin/logout">
+  <button type="submit" class="btn btn-ghost">Logout</button>
+</form>
+{{end}}
+
+{{define "content"}}
+<section class="card">
+  <h2>
+    Stats for
+    <a href="{{.SiteURL}}/{{.Link.Keyword}}" target="_blank" rel="noopener">{{.Link.Keyword}}</a>
+  </h2>
+
+  <dl class="stat-grid">
+    <dt>Short URL</dt>
+    <dd>
+      <a href="{{.SiteURL}}/{{.Link.Keyword}}" target="_blank" rel="noopener">{{.SiteURL}}/{{.Link.Keyword}}</a>
+      <button class="btn-copy" onclick="copyText('{{.SiteURL}}/{{.Link.Keyword}}')" title="Copy">⎘</button>
+    </dd>
+
+    <dt>Destination</dt>
+    <dd><a href="{{.Link.URL}}" target="_blank" rel="noopener">{{.Link.URL}}</a></dd>
+
+    {{if .Link.Title}}
+    <dt>Title</dt>
+    <dd>{{.Link.Title}}</dd>
+    {{end}}
+
+    <dt>Created</dt>
+    <dd>{{formatTime .Link.CreatedAt}}</dd>
+
+    <dt>Total clicks</dt>
+    <dd><strong>{{.Link.Clicks}}</strong></dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Clicks per day (last 60 days)</h2>
+  {{if .DayStats}}
+  <table class="stats-table">
+    <thead>
+      <tr><th>Date</th><th class="num">Clicks</th></tr>
+    </thead>
+    <tbody>
+    {{range .DayStats}}
+    <tr>
+      <td>{{.Date}}</td>
+      <td class="num">{{.Clicks}}</td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="empty">No clicks recorded yet.</p>
+  {{end}}
+</section>
+
+<a href="/admin" class="btn">← Back to admin</a>
+{{end}}

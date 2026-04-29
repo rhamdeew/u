@@ -1,0 +1,13 @@
+site_url:   "https://u.example.com"
+db_path:    "data/u.db"
+cookie_key: "change-me-to-a-long-random-string"
+addr:       ":8080"
+debug:      false
+
+admin:
+  username: "admin"
+  # Password is NOT stored here.
+  # Pass it at runtime via U_ADMIN_PASSWORD env var (plaintext — hashed at startup).
+  # Or pre-hash with: make hashpw PASSWORD=yourpassword
+  # and uncomment:
+  # password: "$2a$10$..."
