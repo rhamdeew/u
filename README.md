@@ -1,5 +1,11 @@
 # u — URL Shortener
 
+![CI/CD Status](https://github.com/rhamdeew/u/actions/workflows/release.yml/badge.svg)
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/rhamdeew/u)](https://github.com/rhamdeew/u/releases/latest)
+[![GitHub license](https://img.shields.io/github/license/rhamdeew/u)](https://github.com/rhamdeew/u/blob/main/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rhamdeew/u)](https://goreportcard.com/report/github.com/rhamdeew/u)
+[![GitHub stars](https://img.shields.io/github/stars/rhamdeew/u)](https://github.com/rhamdeew/u/stargazers)
+
 A minimal self-hosted URL shortener written in Go. Public users follow short links and get a redirect; the admin manages links via a web panel.
 
 ## Stack
