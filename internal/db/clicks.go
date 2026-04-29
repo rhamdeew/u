@@ -32,7 +32,7 @@ func (d *DB) DayClickDetails(keyword, date string) ([]ClickRecord, error) {
 	rows, err := d.sql.Query(`
 		SELECT clicked_at, referrer, user_agent, ip
 		FROM clicks
-		WHERE keyword = ? AND strftime('%Y-%m-%d', clicked_at) = ?
+		WHERE keyword = ? AND strftime('%Y-%m-%d', datetime(clicked_at, 'localtime')) = ?
 		ORDER BY clicked_at DESC
 	`, keyword, date)
 	if err != nil {
@@ -57,7 +57,7 @@ func (d *DB) DayClickDetails(keyword, date string) ([]ClickRecord, error) {
 // DayStats returns click counts grouped by day for the given keyword (last 60 days).
 func (d *DB) DayStats(keyword string) ([]DayStat, error) {
 	rows, err := d.sql.Query(`
-		SELECT strftime('%Y-%m-%d', clicked_at) AS day, COUNT(*) AS cnt
+		SELECT strftime('%Y-%m-%d', datetime(clicked_at, 'localtime')) AS day, COUNT(*) AS cnt
 		FROM clicks
 		WHERE keyword = ?
 		  AND clicked_at >= datetime('now', '-60 days')

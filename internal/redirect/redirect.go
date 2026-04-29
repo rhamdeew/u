@@ -2,6 +2,7 @@ package redirect
 
 import (
 	"net/http"
+	"time"
 
 	"u/internal/auth"
 	"u/internal/db"
@@ -40,6 +41,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		_ = h.db.InsertClick(db.ClickRecord{
 			Keyword:   keyword,
+			ClickedAt: time.Now(),
 			Referrer:  r.Referer(),
 			UserAgent: r.UserAgent(),
 			IP:        clientIP(r),
