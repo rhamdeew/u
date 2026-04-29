@@ -27,6 +27,33 @@ func (d *DB) InsertClick(c ClickRecord) error {
 	return err
 }
 
+// DayClickDetails returns individual click records for a keyword on a specific date (YYYY-MM-DD).
+func (d *DB) DayClickDetails(keyword, date string) ([]ClickRecord, error) {
+	rows, err := d.sql.Query(`
+		SELECT clicked_at, referrer, user_agent, ip
+		FROM clicks
+		WHERE keyword = ? AND strftime('%Y-%m-%d', clicked_at) = ?
+		ORDER BY clicked_at DESC
+	`, keyword, date)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var clicks []ClickRecord
+	for rows.Next() {
+		var c ClickRecord
+		var clickedAt string
+		if err := rows.Scan(&clickedAt, &c.Referrer, &c.UserAgent, &c.IP); err != nil {
+			return nil, err
+		}
+		c.ClickedAt = parseTime(clickedAt)
+		c.Keyword = keyword
+		clicks = append(clicks, c)
+	}
+	return clicks, rows.Err()
+}
+
 // DayStats returns click counts grouped by day for the given keyword (last 60 days).
 func (d *DB) DayStats(keyword string) ([]DayStat, error) {
 	rows, err := d.sql.Query(`

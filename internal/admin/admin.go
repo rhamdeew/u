@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -50,6 +51,7 @@ func (h *Handler) Routes() chi.Router {
 		r.Post("/links/{keyword}/edit", h.postEditLink)
 		r.Post("/links/{keyword}/delete", h.postDeleteLink)
 		r.Get("/links/{keyword}/stats", h.getStats)
+		r.Get("/links/{keyword}/stats/{date}/details", h.getClickDetails)
 	})
 
 	return r
@@ -278,6 +280,48 @@ func (h *Handler) getStats(w http.ResponseWriter, r *http.Request) {
 		Link:     link,
 		DayStats: dayStats,
 	})
+}
+
+// getClickDetails returns individual click records for a keyword+date as JSON.
+func (h *Handler) getClickDetails(w http.ResponseWriter, r *http.Request) {
+	keyword := chi.URLParam(r, "keyword")
+	date := chi.URLParam(r, "date")
+
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		http.Error(w, "invalid date", http.StatusBadRequest)
+		return
+	}
+
+	link, err := h.db.GetByKeyword(keyword)
+	if err != nil || link == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	clicks, err := h.db.DayClickDetails(keyword, date)
+	if err != nil {
+		http.Error(w, "DB error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type clickJSON struct {
+		ClickedAt string `json:"clicked_at"`
+		IP        string `json:"ip"`
+		UserAgent string `json:"user_agent"`
+		Referrer  string `json:"referrer"`
+	}
+	result := make([]clickJSON, len(clicks))
+	for i, c := range clicks {
+		result[i] = clickJSON{
+			ClickedAt: c.ClickedAt.Format("2006-01-02 15:04:05"),
+			IP:        c.IP,
+			UserAgent: c.UserAgent,
+			Referrer:  c.Referrer,
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }
 
 // ── Render helpers ─────────────────────────────────────────────────────────────

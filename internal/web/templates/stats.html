@@ -45,9 +45,18 @@
     </thead>
     <tbody>
     {{range .DayStats}}
-    <tr>
-      <td>{{.Date}}</td>
+    <tr class="stats-day-row" data-date="{{.Date}}">
+      <td>
+        <button class="btn-day-expand" onclick="toggleDay(this,'{{$.Link.Keyword}}','{{.Date}}')" title="Show click details">
+          <span class="expand-icon">▶</span>{{.Date}}
+        </button>
+      </td>
       <td class="num">{{.Clicks}}</td>
+    </tr>
+    <tr class="detail-row" id="detail-{{.Date}}">
+      <td colspan="2" class="detail-cell">
+        <span class="detail-loading">Loading…</span>
+      </td>
     </tr>
     {{end}}
     </tbody>
@@ -58,4 +67,66 @@
 </section>
 
 <a href="/admin" class="btn">← Back to admin</a>
+
+<script>
+function toggleDay(btn, keyword, date) {
+  var row = document.getElementById('detail-' + date);
+  var icon = btn.querySelector('.expand-icon');
+  var open = row.classList.toggle('detail-row--open');
+  icon.textContent = open ? '▼' : '▶';
+  if (!open) return;
+
+  var cell = row.querySelector('.detail-cell');
+  if (cell.dataset.loaded) return;
+
+  fetch('/admin/links/' + encodeURIComponent(keyword) + '/stats/' + date + '/details')
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(clicks) {
+      cell.dataset.loaded = '1';
+      if (!clicks || clicks.length === 0) {
+        cell.innerHTML = '<p class="empty" style="padding:8px 0">No records for this day.</p>';
+        return;
+      }
+
+      var table = document.createElement('table');
+      table.className = 'detail-table';
+
+      var thead = table.createTHead();
+      var hrow = thead.insertRow();
+      ['Time', 'IP', 'User Agent', 'Referrer'].forEach(function(h) {
+        var th = document.createElement('th');
+        th.textContent = h;
+        hrow.appendChild(th);
+      });
+
+      var tbody = table.createTBody();
+      clicks.forEach(function(c) {
+        var row = tbody.insertRow();
+
+        var td1 = row.insertCell(); td1.className = 'detail-time'; td1.textContent = c.clicked_at || '—';
+        var td2 = row.insertCell(); td2.className = 'detail-ip';   td2.textContent = c.ip || '—';
+        var td3 = row.insertCell(); td3.className = 'detail-ua';   td3.textContent = c.user_agent || '—';
+
+        var td4 = row.insertCell(); td4.className = 'detail-ref';
+        if (c.referrer && (c.referrer.startsWith('http://') || c.referrer.startsWith('https://'))) {
+          var a = document.createElement('a');
+          a.href = c.referrer; a.textContent = c.referrer;
+          a.target = '_blank'; a.rel = 'noopener noreferrer';
+          td4.appendChild(a);
+        } else {
+          td4.textContent = c.referrer || '—';
+        }
+      });
+
+      cell.innerHTML = '';
+      cell.appendChild(table);
+    })
+    .catch(function() {
+      cell.innerHTML = '<p class="empty" style="padding:8px 0">Error loading details.</p>';
+    });
+}
+</script>
 {{end}}
