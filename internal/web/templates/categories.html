@@ -1,0 +1,57 @@
+{{define "title"}}Categories — u.{{end}}
+
+{{define "header-right"}}
+<div class="header-right">
+  <nav class="header-nav">
+    <a href="/admin" class="btn btn-ghost btn-sm">Links</a>
+    <a href="/admin/dashboard" class="btn btn-ghost btn-sm">Dashboard</a>
+    <a href="/admin/categories" class="btn btn-ghost btn-sm">Categories</a>
+  </nav>
+  <form method="POST" action="/admin/logout">
+    <button type="submit" class="btn btn-ghost">Logout</button>
+  </form>
+</div>
+{{end}}
+
+{{define "content"}}
+{{if .Flash.Message}}
+<p class="flash flash-{{.Flash.Kind}}">{{.Flash.Message}}</p>
+{{end}}
+
+<section class="card">
+  <h2>Add category</h2>
+  <form method="POST" action="/admin/categories" class="add-form">
+    <input type="text" name="name" placeholder="Category name" required>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Categories</h2>
+  {{if .Categories}}
+  <table class="links-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {{range .Categories}}
+    <tr>
+      <td><span class="cat-badge">{{.Name}}</span></td>
+      <td class="cell-actions">
+        <form method="POST" action="/admin/categories/{{.ID}}/delete" style="display:inline"
+              onsubmit="return confirm('Delete category \'{{.Name}}\'? Links in this category will become uncategorised.')">
+          <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="empty">No categories yet.</p>
+  {{end}}
+</section>
+{{end}}

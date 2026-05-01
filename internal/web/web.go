@@ -35,11 +35,21 @@ func ParseTemplates() (*admin.Templates, error) {
 	if err != nil {
 		return nil, err
 	}
+	dashboard, err := parse("templates/dashboard.html")
+	if err != nil {
+		return nil, err
+	}
+	categories, err := parse("templates/categories.html")
+	if err != nil {
+		return nil, err
+	}
 
 	return &admin.Templates{
-		Login: login,
-		Admin: adminTmpl,
-		Edit:  edit,
-		Stats: stats,
+		Login:      login,
+		Admin:      adminTmpl,
+		Edit:       edit,
+		Stats:      stats,
+		Dashboard:  dashboard,
+		Categories: categories,
 	}, nil
 }

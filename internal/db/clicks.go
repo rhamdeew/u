@@ -54,6 +54,51 @@ func (d *DB) DayClickDetails(keyword, date string) ([]ClickRecord, error) {
 	return clicks, rows.Err()
 }
 
+// PeriodStat holds per-link click count for a time period.
+type PeriodStat struct {
+	Keyword string
+	URL     string
+	Title   string
+	Clicks  int
+}
+
+// PeriodTotals returns total clicks and unique link count for [from, to).
+func (d *DB) PeriodTotals(from, to time.Time) (clicks, linkCount int, err error) {
+	err = d.sql.QueryRow(`
+		SELECT COUNT(*), COUNT(DISTINCT keyword)
+		FROM clicks
+		WHERE clicked_at >= ? AND clicked_at < ?
+	`, from.UTC().Format("2006-01-02 15:04:05"), to.UTC().Format("2006-01-02 15:04:05")).Scan(&clicks, &linkCount)
+	return
+}
+
+// PeriodStats returns per-link click totals for [from, to), ordered by clicks desc (top 20).
+func (d *DB) PeriodStats(from, to time.Time) ([]PeriodStat, error) {
+	rows, err := d.sql.Query(`
+		SELECT l.keyword, l.url, l.title, COUNT(*) AS cnt
+		FROM clicks c
+		JOIN links l ON l.keyword = c.keyword
+		WHERE c.clicked_at >= ? AND c.clicked_at < ?
+		GROUP BY l.keyword
+		ORDER BY cnt DESC
+		LIMIT 20
+	`, from.UTC().Format("2006-01-02 15:04:05"), to.UTC().Format("2006-01-02 15:04:05"))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []PeriodStat
+	for rows.Next() {
+		var s PeriodStat
+		if err := rows.Scan(&s.Keyword, &s.URL, &s.Title, &s.Clicks); err != nil {
+			return nil, err
+		}
+		stats = append(stats, s)
+	}
+	return stats, rows.Err()
+}
+
 // DayStats returns click counts grouped by day for the given keyword (last 60 days).
 func (d *DB) DayStats(keyword string) ([]DayStat, error) {
 	rows, err := d.sql.Query(`

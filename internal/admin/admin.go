@@ -24,10 +24,12 @@ type Handler struct {
 
 // Templates holds pre-parsed template sets for each page.
 type Templates struct {
-	Login *template.Template
-	Admin *template.Template
-	Edit  *template.Template
-	Stats *template.Template
+	Login      *template.Template
+	Admin      *template.Template
+	Edit       *template.Template
+	Stats      *template.Template
+	Dashboard  *template.Template
+	Categories *template.Template
 }
 
 func New(database *db.DB, cfg *config.Config, tmpl *Templates) *Handler {
@@ -52,6 +54,10 @@ func (h *Handler) Routes() chi.Router {
 		r.Post("/links/{keyword}/delete", h.postDeleteLink)
 		r.Get("/links/{keyword}/stats", h.getStats)
 		r.Get("/links/{keyword}/stats/{date}/details", h.getClickDetails)
+		r.Get("/dashboard", h.getDashboard)
+		r.Get("/categories", h.getCategories)
+		r.Post("/categories", h.postCreateCategory)
+		r.Post("/categories/{id}/delete", h.postDeleteCategory)
 	})
 
 	return r
@@ -103,11 +109,12 @@ func (h *Handler) getIndex(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
 	opts := db.ListOpts{
-		Search:   strings.TrimSpace(q.Get("search")),
-		SortBy:   q.Get("sort"),
-		SortDesc: q.Get("dir") == "desc",
-		Page:     intParam(q, "page", 1),
-		PerPage:  intParam(q, "per_page", 20),
+		Search:     strings.TrimSpace(q.Get("search")),
+		SortBy:     q.Get("sort"),
+		SortDesc:   q.Get("dir") == "desc",
+		Page:       intParam(q, "page", 1),
+		PerPage:    intParam(q, "per_page", 20),
+		CategoryID: intParam(q, "category", 0),
 	}
 
 	result, err := h.db.List(opts)
@@ -117,6 +124,7 @@ func (h *Handler) getIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	totalLinks, totalClicks, _ := h.db.TotalStats()
+	cats, _ := h.db.ListCategories()
 
 	type pageData struct {
 		SiteURL     string
@@ -131,6 +139,8 @@ func (h *Handler) getIndex(w http.ResponseWriter, r *http.Request) {
 		TotalLinks  int
 		TotalClicks int
 		Flash       flash
+		Categories  []db.Category
+		CategoryID  int
 	}
 
 	h.tmpl.Admin.ExecuteTemplate(w, "base", pageData{
@@ -146,6 +156,8 @@ func (h *Handler) getIndex(w http.ResponseWriter, r *http.Request) {
 		TotalLinks:  totalLinks,
 		TotalClicks: totalClicks,
 		Flash:       flashFromQuery(q),
+		Categories:  cats,
+		CategoryID:  opts.CategoryID,
 	})
 }
 
@@ -155,6 +167,7 @@ func (h *Handler) postCreateLink(w http.ResponseWriter, r *http.Request) {
 	rawURL := strings.TrimSpace(r.FormValue("url"))
 	keyword := strings.TrimSpace(r.FormValue("keyword"))
 	title := strings.TrimSpace(r.FormValue("title"))
+	categoryID := intParam(r.Form, "category", 0)
 
 	if rawURL == "" {
 		h.redirectWithFlash(w, r, "/admin", "error", "URL is required")
@@ -175,10 +188,11 @@ func (h *Handler) postCreateLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	link := &db.Link{
-		Keyword: keyword,
-		URL:     rawURL,
-		Title:   title,
-		IP:      clientIP(r),
+		Keyword:    keyword,
+		URL:        rawURL,
+		Title:      title,
+		IP:         clientIP(r),
+		CategoryID: categoryID,
 	}
 	if err := h.db.Insert(link); err != nil {
 		h.redirectWithFlash(w, r, "/admin", "error", "Could not save link: "+err.Error())
@@ -198,16 +212,20 @@ func (h *Handler) getEditLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cats, _ := h.db.ListCategories()
+
 	type pageData struct {
-		SiteURL string
-		Link    *db.Link
-		Error   string
-		Flash   flash
+		SiteURL    string
+		Link       *db.Link
+		Error      string
+		Flash      flash
+		Categories []db.Category
 	}
 	h.tmpl.Edit.ExecuteTemplate(w, "base", pageData{
-		SiteURL: h.cfg.SiteURL,
-		Link:    link,
-		Flash:   flashFromQuery(r.URL.Query()),
+		SiteURL:    h.cfg.SiteURL,
+		Link:       link,
+		Flash:      flashFromQuery(r.URL.Query()),
+		Categories: cats,
 	})
 }
 
@@ -216,6 +234,7 @@ func (h *Handler) postEditLink(w http.ResponseWriter, r *http.Request) {
 	newKeyword := strings.TrimSpace(r.FormValue("keyword"))
 	rawURL := strings.TrimSpace(r.FormValue("url"))
 	title := strings.TrimSpace(r.FormValue("title"))
+	categoryID := intParam(r.Form, "category", 0)
 
 	if rawURL == "" {
 		h.redirectWithFlash(w, r, "/admin/links/"+oldKeyword+"/edit", "error", "URL is required")
@@ -231,7 +250,7 @@ func (h *Handler) postEditLink(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.db.Update(oldKeyword, newKeyword, rawURL, title); err != nil {
+	if err := h.db.Update(oldKeyword, newKeyword, rawURL, title, categoryID); err != nil {
 		h.redirectWithFlash(w, r, "/admin/links/"+oldKeyword+"/edit", "error", "Could not update: "+err.Error())
 		return
 	}
@@ -322,6 +341,110 @@ func (h *Handler) getClickDetails(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────────
+
+func (h *Handler) getDashboard(w http.ResponseWriter, r *http.Request) {
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	type periodDef struct {
+		Label string
+		From  time.Time
+		To    time.Time
+	}
+	defs := []periodDef{
+		{"Today", todayStart, now},
+		{"Yesterday", todayStart.AddDate(0, 0, -1), todayStart},
+		{"Last 7 days", todayStart.AddDate(0, 0, -7), now},
+		{"Last 30 days", todayStart.AddDate(0, 0, -30), now},
+	}
+
+	type periodData struct {
+		Label     string
+		Clicks    int
+		LinkCount int
+		Links     []db.PeriodStat
+	}
+
+	var periods []periodData
+	for _, p := range defs {
+		clicks, linkCount, err := h.db.PeriodTotals(p.From, p.To)
+		if err != nil {
+			http.Error(w, "DB error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		stats, err := h.db.PeriodStats(p.From, p.To)
+		if err != nil {
+			http.Error(w, "DB error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		periods = append(periods, periodData{
+			Label:     p.Label,
+			Clicks:    clicks,
+			LinkCount: linkCount,
+			Links:     stats,
+		})
+	}
+
+	type pageData struct {
+		SiteURL string
+		Periods []periodData
+	}
+	h.tmpl.Dashboard.ExecuteTemplate(w, "base", pageData{
+		SiteURL: h.cfg.SiteURL,
+		Periods: periods,
+	})
+}
+
+// ── Categories ─────────────────────────────────────────────────────────────────
+
+func (h *Handler) getCategories(w http.ResponseWriter, r *http.Request) {
+	cats, err := h.db.ListCategories()
+	if err != nil {
+		http.Error(w, "DB error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	type pageData struct {
+		SiteURL    string
+		Categories []db.Category
+		Flash      flash
+	}
+	h.tmpl.Categories.ExecuteTemplate(w, "base", pageData{
+		SiteURL:    h.cfg.SiteURL,
+		Categories: cats,
+		Flash:      flashFromQuery(r.URL.Query()),
+	})
+}
+
+func (h *Handler) postCreateCategory(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		h.redirectWithFlash(w, r, "/admin/categories", "error", "Name is required")
+		return
+	}
+	if _, err := h.db.CreateCategory(name); err != nil {
+		h.redirectWithFlash(w, r, "/admin/categories", "error", "Could not create category: "+err.Error())
+		return
+	}
+	h.redirectWithFlash(w, r, "/admin/categories", "success", "Category '"+name+"' created")
+}
+
+func (h *Handler) postDeleteCategory(w http.ResponseWriter, r *http.Request) {
+	id := 0
+	for _, c := range chi.URLParam(r, "id") {
+		if c < '0' || c > '9' {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		id = id*10 + int(c-'0')
+	}
+	if err := h.db.DeleteCategory(id); err != nil {
+		h.redirectWithFlash(w, r, "/admin/categories", "error", "Could not delete: "+err.Error())
+		return
+	}
+	h.redirectWithFlash(w, r, "/admin/categories", "success", "Category deleted")
 }
 
 // ── Render helpers ─────────────────────────────────────────────────────────────

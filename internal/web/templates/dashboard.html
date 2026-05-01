@@ -1,0 +1,55 @@
+{{define "title"}}Dashboard — u.{{end}}
+
+{{define "header-right"}}
+<div class="header-right">
+  <nav class="header-nav">
+    <a href="/admin" class="btn btn-ghost btn-sm">Links</a>
+    <a href="/admin/dashboard" class="btn btn-ghost btn-sm">Dashboard</a>
+    <a href="/admin/categories" class="btn btn-ghost btn-sm">Categories</a>
+  </nav>
+  <form method="POST" action="/admin/logout">
+    <button type="submit" class="btn btn-ghost">Logout</button>
+  </form>
+</div>
+{{end}}
+
+{{define "content"}}
+<div class="dashboard-grid">
+  {{range .Periods}}
+  <section class="card period-card">
+    <div class="period-header">
+      <h2 class="period-label">{{.Label}}</h2>
+      <div class="period-totals">
+        <span class="period-clicks">{{.Clicks}} clicks</span>
+        <span class="period-links-count">{{.LinkCount}} links</span>
+      </div>
+    </div>
+
+    {{if .Links}}
+    <table class="stats-table period-table">
+      <thead>
+        <tr>
+          <th>Link</th>
+          <th>Title</th>
+          <th class="num">Clicks</th>
+        </tr>
+      </thead>
+      <tbody>
+      {{range .Links}}
+      <tr>
+        <td class="cell-keyword">
+          <a href="/admin/links/{{.Keyword}}/stats">{{.Keyword}}</a>
+        </td>
+        <td class="cell-title">{{if .Title}}{{truncate .Title 40}}{{else}}<span style="color:var(--muted)">—</span>{{end}}</td>
+        <td class="num">{{.Clicks}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="empty">No clicks in this period.</p>
+    {{end}}
+  </section>
+  {{end}}
+</div>
+{{end}}

@@ -1,9 +1,16 @@
 {{define "title"}}Edit {{.Link.Keyword}} — u.{{end}}
 
 {{define "header-right"}}
-<form method="POST" action="/admin/logout">
-  <button type="submit" class="btn btn-ghost">Logout</button>
-</form>
+<div class="header-right">
+  <nav class="header-nav">
+    <a href="/admin" class="btn btn-ghost btn-sm">Links</a>
+    <a href="/admin/dashboard" class="btn btn-ghost btn-sm">Dashboard</a>
+    <a href="/admin/categories" class="btn btn-ghost btn-sm">Categories</a>
+  </nav>
+  <form method="POST" action="/admin/logout">
+    <button type="submit" class="btn btn-ghost">Logout</button>
+  </form>
+</div>
 {{end}}
 
 {{define "content"}}
@@ -26,6 +33,17 @@
       <span>Title</span>
       <input type="text" name="title" value="{{.Link.Title}}">
     </label>
+    {{if .Categories}}
+    <label>
+      <span>Category</span>
+      <select name="category" class="add-form-select">
+        <option value="0">— no category —</option>
+        {{range .Categories}}
+        <option value="{{.ID}}" {{if eq $.Link.CategoryID .ID}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+    </label>
+    {{end}}
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Save</button>
       <a href="/admin" class="btn btn-ghost">Cancel</a>

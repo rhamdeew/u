@@ -4,24 +4,28 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
 type Link struct {
-	Keyword   string
-	URL       string
-	Title     string
-	CreatedAt time.Time
-	IP        string
-	Clicks    int
+	Keyword      string
+	URL          string
+	Title        string
+	CreatedAt    time.Time
+	IP           string
+	Clicks       int
+	CategoryID   int
+	CategoryName string
 }
 
 type ListOpts struct {
-	Search   string
-	SortBy   string // keyword | url | title | created_at | clicks
-	SortDesc bool
-	Page     int
-	PerPage  int
+	Search     string
+	SortBy     string // keyword | url | title | created_at | clicks
+	SortDesc   bool
+	Page       int
+	PerPage    int
+	CategoryID int
 }
 
 type ListResult struct {
@@ -30,14 +34,25 @@ type ListResult struct {
 	TotalPages int
 }
 
-// GetByKeyword returns the link or nil if not found.
-func (d *DB) GetByKeyword(keyword string) (*Link, error) {
+const linkSelect = `
+	SELECT l.keyword, l.url, l.title, l.created_at, l.ip, l.clicks,
+	       COALESCE(l.category_id, 0), COALESCE(c.name, '')
+	FROM links l LEFT JOIN categories c ON c.id = l.category_id`
+
+func scanLink(row interface {
+	Scan(...any) error
+}) (Link, string, error) {
 	var l Link
 	var createdAt string
-	err := d.sql.QueryRow(
-		`SELECT keyword, url, title, created_at, ip, clicks FROM links WHERE keyword = ?`,
-		keyword,
-	).Scan(&l.Keyword, &l.URL, &l.Title, &createdAt, &l.IP, &l.Clicks)
+	err := row.Scan(&l.Keyword, &l.URL, &l.Title, &createdAt, &l.IP, &l.Clicks,
+		&l.CategoryID, &l.CategoryName)
+	return l, createdAt, err
+}
+
+// GetByKeyword returns the link or nil if not found.
+func (d *DB) GetByKeyword(keyword string) (*Link, error) {
+	row := d.sql.QueryRow(linkSelect+` WHERE l.keyword = ?`, keyword)
+	l, createdAt, err := scanLink(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -50,12 +65,8 @@ func (d *DB) GetByKeyword(keyword string) (*Link, error) {
 
 // URLExists returns the existing link for a long URL, or nil if not found.
 func (d *DB) URLExists(url string) (*Link, error) {
-	var l Link
-	var createdAt string
-	err := d.sql.QueryRow(
-		`SELECT keyword, url, title, created_at, ip, clicks FROM links WHERE url = ? LIMIT 1`,
-		url,
-	).Scan(&l.Keyword, &l.URL, &l.Title, &createdAt, &l.IP, &l.Clicks)
+	row := d.sql.QueryRow(linkSelect+` WHERE l.url = ? LIMIT 1`, url)
+	l, createdAt, err := scanLink(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -86,10 +97,15 @@ func (d *DB) Insert(l *Link) error {
 		l.CreatedAt = time.Now().UTC()
 	}
 
+	var catID any
+	if l.CategoryID > 0 {
+		catID = l.CategoryID
+	}
+
 	_, err = tx.Exec(
-		`INSERT INTO links (keyword, url, title, created_at, ip, clicks)
-		 VALUES (?, ?, ?, ?, ?, 0)`,
-		l.Keyword, l.URL, l.Title, l.CreatedAt.Format("2006-01-02 15:04:05"), l.IP,
+		`INSERT INTO links (keyword, url, title, created_at, ip, clicks, category_id)
+		 VALUES (?, ?, ?, ?, ?, 0, ?)`,
+		l.Keyword, l.URL, l.Title, l.CreatedAt.Format("2006-01-02 15:04:05"), l.IP, catID,
 	)
 	if err != nil {
 		return err
@@ -98,13 +114,17 @@ func (d *DB) Insert(l *Link) error {
 }
 
 // Update modifies an existing link. If newKeyword is empty, the keyword is unchanged.
-func (d *DB) Update(oldKeyword, newKeyword, url, title string) error {
+func (d *DB) Update(oldKeyword, newKeyword, url, title string, categoryID int) error {
 	if newKeyword == "" {
 		newKeyword = oldKeyword
 	}
+	var catID any
+	if categoryID > 0 {
+		catID = categoryID
+	}
 	_, err := d.sql.Exec(
-		`UPDATE links SET keyword = ?, url = ?, title = ? WHERE keyword = ?`,
-		newKeyword, url, title, oldKeyword,
+		`UPDATE links SET keyword = ?, url = ?, title = ?, category_id = ? WHERE keyword = ?`,
+		newKeyword, url, title, catID, oldKeyword,
 	)
 	return err
 }
@@ -142,10 +162,11 @@ func (d *DB) List(opts ListOpts) (ListResult, error) {
 		dir = "DESC"
 	}
 
-	where, args := buildWhere(opts.Search)
+	where, args := buildWhere(opts.Search, opts.CategoryID)
 
 	var total int
-	if err := d.sql.QueryRow("SELECT COUNT(*) FROM links"+where, args...).Scan(&total); err != nil {
+	countQ := "SELECT COUNT(*) FROM links l LEFT JOIN categories c ON c.id = l.category_id" + where
+	if err := d.sql.QueryRow(countQ, args...).Scan(&total); err != nil {
 		return ListResult{}, err
 	}
 
@@ -156,7 +177,7 @@ func (d *DB) List(opts ListOpts) (ListResult, error) {
 	offset := (opts.Page - 1) * opts.PerPage
 
 	query := fmt.Sprintf(
-		`SELECT keyword, url, title, created_at, ip, clicks FROM links%s ORDER BY %s %s LIMIT ? OFFSET ?`,
+		linkSelect+`%s ORDER BY l.%s %s LIMIT ? OFFSET ?`,
 		where, opts.SortBy, dir,
 	)
 	queryArgs := append(args, opts.PerPage, offset)
@@ -169,9 +190,8 @@ func (d *DB) List(opts ListOpts) (ListResult, error) {
 
 	var links []Link
 	for rows.Next() {
-		var l Link
-		var createdAt string
-		if err := rows.Scan(&l.Keyword, &l.URL, &l.Title, &createdAt, &l.IP, &l.Clicks); err != nil {
+		l, createdAt, err := scanLink(rows)
+		if err != nil {
 			return ListResult{}, err
 		}
 		l.CreatedAt = parseTime(createdAt)
@@ -194,14 +214,25 @@ func (d *DB) TotalStats() (links, clicks int, err error) {
 	return
 }
 
-// buildWhere returns a WHERE clause and args for a search query.
-// SortBy/dir are validated before interpolation so this is safe.
-func buildWhere(search string) (string, []any) {
-	if search == "" {
+// buildWhere returns a WHERE clause and args for search + optional category filter.
+func buildWhere(search string, categoryID int) (string, []any) {
+	var clauses []string
+	var args []any
+
+	if search != "" {
+		s := "%" + search + "%"
+		clauses = append(clauses, "(l.keyword LIKE ? OR l.url LIKE ? OR l.title LIKE ?)")
+		args = append(args, s, s, s)
+	}
+	if categoryID > 0 {
+		clauses = append(clauses, "l.category_id = ?")
+		args = append(args, categoryID)
+	}
+
+	if len(clauses) == 0 {
 		return "", nil
 	}
-	s := "%" + search + "%"
-	return ` WHERE keyword LIKE ? OR url LIKE ? OR title LIKE ?`, []any{s, s, s}
+	return " WHERE " + strings.Join(clauses, " AND "), args
 }
 
 // nextKeyword atomically increments the counter and returns a base36 keyword.

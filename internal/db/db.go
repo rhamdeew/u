@@ -53,8 +53,18 @@ func (d *DB) migrate() error {
 			next_val INTEGER NOT NULL DEFAULT 1
 		);
 		INSERT OR IGNORE INTO counter (id, next_val) VALUES (1, 1);
+
+		CREATE TABLE IF NOT EXISTS categories (
+			id   INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE
+		);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	// Idempotent: add category_id to links if not yet present.
+	_, _ = d.sql.Exec(`ALTER TABLE links ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL`)
+	return nil
 }
 
 func (d *DB) Close() error {

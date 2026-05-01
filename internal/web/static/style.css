@@ -46,6 +46,15 @@ a:hover { text-decoration: underline; }
   text-decoration: none;
   letter-spacing: -1px;
 }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-nav {
+  display: flex;
+  gap: 2px;
+}
 
 /* ── Main ── */
 .site-main {
@@ -108,6 +117,7 @@ a:hover { text-decoration: underline; }
 .btn-ghost:hover { background: var(--bg); }
 
 .btn-sm { padding: 3px 8px; font-size: 12px; }
+.btn-icon { padding: 3px 7px; font-size: 14px; line-height: 1; }
 
 .btn-copy {
   background: none;
@@ -169,6 +179,54 @@ a:hover { text-decoration: underline; }
 }
 .login-form button:hover { background: var(--accent-h); }
 
+/* ── Category badge ── */
+.cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Dashboard ── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+@media (max-width: 700px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+.period-card { margin-bottom: 0; }
+.period-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.period-label {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+.period-totals {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.period-clicks {
+  font-weight: 600;
+  color: var(--fg);
+}
+.period-table { font-size: 12px; }
+
 /* ── Add form ── */
 .add-form {
   display: flex;
@@ -196,6 +254,17 @@ a:hover { text-decoration: underline; }
 .add-form input[name="keyword"] { min-width: 120px; }
 .add-form input:focus { border-color: var(--accent); }
 .add-form button { align-self: flex-end; }
+.add-form-select {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  background: var(--bg);
+  outline: none;
+  align-self: flex-end;
+  height: 32px;
+}
+.add-form-select:focus { border-color: var(--accent); }
 
 /* ── List header ── */
 .list-header {
@@ -233,6 +302,7 @@ a:hover { text-decoration: underline; }
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 .links-table th {
   text-align: left;
@@ -252,13 +322,16 @@ a:hover { text-decoration: underline; }
 .links-table tr:last-child td { border-bottom: none; }
 .links-table tr:hover td { background: var(--bg); }
 
-.cell-keyword { font-weight: 600; white-space: nowrap; }
-.cell-url     { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cell-title   { color: var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cell-date    { white-space: nowrap; color: var(--muted); font-size: 12px; }
-.cell-actions { white-space: nowrap; }
+.cell-keyword   { font-weight: 600; white-space: nowrap; width: 110px; }
+.cell-url       { width: 28%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-title     { color: var(--muted); width: 18%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell-category  { white-space: nowrap; width: 90px; }
+.cell-date      { white-space: nowrap; color: var(--muted); font-size: 12px; width: 110px; }
+.cell-actions   { white-space: nowrap; width: 90px; }
 .cell-actions > * { margin-right: 4px; }
-.num          { text-align: right; }
+.num                { text-align: right; }
+.links-table th.num,
+.stats-table th.num { text-align: right; }
 
 /* ── Pagination ── */
 .pagination {

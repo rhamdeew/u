@@ -96,7 +96,7 @@ func TestUpdate(t *testing.T) {
 	link := &db.Link{Keyword: "old", URL: "https://old.com"}
 	_ = d.Insert(link)
 
-	if err := d.Update("old", "new", "https://new.com", "New Title"); err != nil {
+	if err := d.Update("old", "new", "https://new.com", "New Title", 0); err != nil {
 		t.Fatal(err)
 	}
 
